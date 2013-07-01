@@ -1,19 +1,20 @@
 <?php
 /**
  * @package T2W
- * @version 0.1
+ * @version 0.2
  */
 /*
 Plugin Name: T2W
 Plugin URI: https://github.com/birdy1976/t2w/
-Description: T2W (twitter2wordpress) posts tweets of a public Twitter account automatically to your WordPress blog.
+Description: T2W (twitter2wordpress) posts tweets of a public Twitter account automatically to a WordPress blog.
 Author: birdy1976
-Version: 0.1
+Version: 0.2
 Author URI: https://twitter.com/#!/birdy1976/
 */
 
 // http://codex.wordpress.org/Function_Reference/fetch_feed
 include_once(ABSPATH . WPINC . '/feed.php');
+include_once("oauth.php");
 
 // http://www.slideshare.net/ronalfy/wordpress-plugin-localization
 add_action('init', 't2w_init');
@@ -69,33 +70,33 @@ function t2w_cron_hourly(){
 	$o = get_option('t2w_options');
 	// https://dev.twitter.com/docs/api/1/get/statuses/user_timeline
 	$status = get_option('t2w_latest_status');
-	$url = 'http://api.twitter.com/1/statuses/user_timeline.rss?screen_name=';
-	$count = 200;
-	$rss = fetch_feed($url.''.$o['username'].'&since_id='.$status.'&count='.$count);
-	if(!is_wp_error($rss)){
-		$maxitems = $rss->get_item_quantity($count); 
-		$rss_items = $rss->get_items(0, $maxitems);
-	}
-	if($maxitems != 0){
+	// functions provided by <oauth.php>
+	$bearer_token = get_bearer_token();
+	// http://stackoverflow.com/questions/6815520/cannot-use-object-of-type-stdclass-as-array
+	$json_items = json_decode(search_for_a_user($bearer_token, $o['username']), true);
+	invalidate_bearer_token($bearer_token);
+	if(count($json_items) != 0 && !isset($json_items["error"])){
 		$tags = get_tags(); $slugs = array(); foreach ($tags as $tag){array_push($slugs, $tag->slug);}
 		$status1; $status2 = $status; $status3 = $status;
-	    foreach ($rss_items as $item){
-			$status1 = end(split("/", $item->get_permalink()));
-			$tweet = esc_html($item->get_title());
+	    foreach ($json_items as $item){
+			$status1 = $item["id_str"];
+			$tweet = esc_html($item["text"]);
 			if(bccomp($status1, $status2) == 1){
+				// http://codex.wordpress.org/Function_Reference/wp_insert_post
 				$post = array();
 				$post['post_title'] = $tweet;
-				$post['post_content'] = '<a href="'.esc_url($item->get_permalink()).'" title="'.$tweet.'">'.$o['linktext'].'</a>';
-				// http://codex.wordpress.org/Formatting_Date_and_Time
-				$post['post_date'] = $item->get_date('Y-m-d H:i:s');
+				// e.g. https://twitter.com/caro__b/status/350249279908089856
+				$post['post_content'] = 'https://twitter.com/'.$o['username']."/status/".$status1;
+				// http://stackoverflow.com/questions/7223436/parsing-the-twitter-api-created-at
+				$post['post_date'] = date('Y-m-d H:i:s', strtotime($item["created_at"]));
 				$post['post_status'] = 'publish';
 				$post['post_author'] = 1;
 				$post['post_category'] = array($o['category']);
 				// Collect as many tags as possible
-				$tweet = strtolower(t2w_unaccent($item->get_title()));
+				$tweet = strtolower(t2w_unaccent($tweet));
 				$tweet = preg_replace('/[^a-z0-9@#\s]/', '', $tweet);
-				$tweet = str_replace($o['username'], ' ', $tweet);
-				$tweet = str_replace('#039', ' ', $tweet);
+				$replace = array($o['username']);
+				$tweet = str_replace($replace, ' ', $tweet);
 				$words = split(' ', $tweet);
 				$tags = array_intersect($slugs, $words);
 				// Get new tags from hashtags and usernames but skip personal username
@@ -131,14 +132,6 @@ function t2w_options_add_pages(){
 	add_filter('plugin_action_links', 't2w_plugin_action_links', 10, 2);
 }
 
-function t2w_get_link_text($linktext){
-	if(strlen($linktext) != 0){
-		return  trim(wp_filter_nohtml_kses($linktext));
-	}else{
-		return __('Original-Tweet-Status (OTS)', "t2w");
-	}
-}
-
 function t2w_options_do_page(){
 	?>
 	<div class="wrap">
@@ -158,9 +151,6 @@ function t2w_options_do_page(){
 				<tr valign="top"><th scope="row"><?php _e('WordPress category', 't2w'); ?></th>
 					<td><?php wp_dropdown_categories('name=t2w_options%5Bcategory%5D&show_count=1&hide_empty=0&selected='.$o['category']); ?></td>
 				</tr>
-				<tr valign="top"><th scope="row"><?php _e('Link text to tweet', 't2w'); ?></th>
-					<td><input type="text" name="t2w_options[linktext]" value="<?php echo t2w_get_link_text($o['linktext']); ?>" /></td>
-				</tr>
 			</table>
 			<p class="submit">
 			<input type="submit" class="button-primary" value="<?php _e('Save changes', 't2w') ?>" />
@@ -173,7 +163,6 @@ function t2w_options_do_page(){
 function t2w_sanitize_options($input){	
 	$input['username'] =  preg_replace('/[^a-z0-9]/', '', strtolower($input['username']));
 	$input['category'] = intval($input['category']);
-	$input['linktext'] = t2w_get_link_text($input['linktext']);
 	// Execute cron as soon as possible
 	wp_schedule_single_event(time(), 't2w_cron_event');	
 	return $input;

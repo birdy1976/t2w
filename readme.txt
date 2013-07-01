@@ -1,21 +1,23 @@
 === T2W ===
 Contributors: birdy1976
-Tags: automatic, aggregator, import, feed, feeds, post, posts, publish, tweet, tweets, twitter, rss
+Tags: automatic, aggregator, import, json, feed, feeds, post, posts, publish, tweet, tweets, twitter
 Requires at least: 3.1
-Tested up to: 3.4
-Stable tag: 0.1
+Tested up to: 3.5
+Stable tag: 0.2
 
-T2W (twitter2wordpress) posts tweets of a public Twitter account automatically to your WordPress blog.
+T2W (twitter2wordpress) posts tweets of a public Twitter account automatically to a WordPress blog.
 
 == Description ==
 
-T2W (twitter2wordpress) posts tweets of a public Twitter account automatically to your WordPress blog.
+T2W (twitter2wordpress) posts tweets of a public Twitter account automatically to a WordPress blog.
 
 == Installation ==
 
-1. Install T2W either via the WordPress.org plugin directory, or by uploading the files to your server
-2. After activating, you will have to visit the settings page in order to enter your Twitter username
-3. That's it for you! From now on Tweets will be posted (almost) magically every hour to your blog B)
+1. Log in to https://dev.twitter.com/ and create a new application to get your consumer key and secret
+2. Get your copy of T2W and modify the file <oauth.php> with the consumer key and secret from Twitter
+3. Install T2W by uploading the files to your server
+4. After activating, you will have to visit the settings page in order to enter your Twitter username
+5. That's it for you! From now on Tweets will be posted (almost) magically every hour to your blog B)
 
 == Frequently Asked Questions ==
 
@@ -43,3 +45,5 @@ Sure, send me the [translation files (*.po/*.mo)](http://alefba.us/how-to/locali
 
 = 0.1 =
 * Initial release: Here we go :)
+= 0.2 =
+* Change from RSS to JSON: https://dev.twitter.com/blog/api-v1-retirement-final-dates
